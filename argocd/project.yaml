@@ -1,0 +1,9 @@
+apiVersion: projctl.konflux.dev/v1beta1
+kind: Project
+metadata:
+  name: multi-version-konflux-stage-sample
+spec:
+  displayName: "Multi-version demonstration sample project [STAGE version]"
+  description: |
+    A sample showing the use of the project-controller to manage multiple 
+    project versions [STAGE version]

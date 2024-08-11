@@ -1,0 +1,81 @@
+apiVersion: projctl.konflux.dev/v1beta1
+kind: ProjectDevelopmentStreamTemplate
+metadata:
+  name: multi-version-konflux-stage-sample-template
+spec:
+  project: multi-version-konflux-stage-sample
+  variables:
+  - name: version
+    description: A version number for a new development stream
+  - name: versionName
+    description: A K8s-compliant name for the version
+    defaultValue: "{{hyphenize .version}}"
+
+  resources:
+  - kind: Application
+    apiVersion: appstudio.redhat.com/v1alpha1
+    metadata:
+      annotations:
+        application.thumbnail: '9'
+      name: multi-version-konflux-stage-sample-{{.versionName}}
+    spec:
+      appModelRepository:
+        url: ''
+      displayName: multi-version-konflux-stage-sample-{{.versionName}}
+      gitOpsRepository:
+        url: ''
+
+  - kind: Component
+    apiVersion: appstudio.redhat.com/v1alpha1
+    metadata:
+      annotations:
+        build.appstudio.openshift.io/pipeline: '{"name":"docker-build","bundle":"latest"}'
+        build.appstudio.openshift.io/status: '{"pac":{"state":"enabled","merge-url":"https://github.com/konflux-ci/multi-version-konflux-stage-sample/pull/6","configuration-time":"Sun, 11 Aug 2024 10:07:35 UTC"},"message":"done"}'
+      name: multi-version-konflux-stage-sample-{{.versionName}}
+    spec:
+      application: multi-version-konflux-stage-sample-{{.versionName}}
+      componentName: multi-version-konflux-stage-sample-{{.versionName}}
+      resources: {}
+      source:
+        git:
+          url: 'https://github.com/konflux-ci/multi-version-konflux-stage-sample.git'
+          revision: "{{.version}}"
+
+  - kind: ImageRepository
+    apiVersion: appstudio.redhat.com/v1alpha1
+    metadata:
+      name: imagerepository-for-multi-version-konflux-stage-sample-{{.versionName}}
+      labels:
+        appstudio.redhat.com/application: multi-version-konflux-stage-sample-{{.versionName}}
+        appstudio.redhat.com/component: multi-version-konflux-stage-sample-{{.versionName}}
+    spec:
+      image:
+        name: konflux-samples-tenant/multi-version-konflux-stage-sample-{{.versionName}}/multi-version-konflux-stage-sample-{{.versionName}}
+        visibility: public
+      notifications:
+        - config:
+            url: 'https://bombino.preprod.api.redhat.com/v1/sbom/quay/push'
+          event: repo_push
+          method: webhook
+          title: SBOM-event-to-Bombino
+
+  - kind: IntegrationTestScenario
+    apiVersion: appstudio.redhat.com/v1beta2
+    metadata:
+      annotations:
+        test.appstudio.openshift.io/kind: enterprise-contract
+      name: multi-version-konflux-stage-sample-{{.versionName}}-enterprise-contract
+    spec:
+      application: multi-version-konflux-stage-sample-{{.versionName}}
+      contexts:
+        - description: Application testing
+          name: application
+      resolverRef:
+        params:
+          - name: url
+            value: 'https://github.com/konflux-ci/build-definitions'
+          - name: revision
+            value: main
+          - name: pathInRepo
+            value: pipelines/enterprise-contract.yaml
+        resolver: git

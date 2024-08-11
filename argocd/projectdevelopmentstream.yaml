@@ -1,0 +1,11 @@
+apiVersion: projctl.konflux.dev/v1beta1
+kind: ProjectDevelopmentStream
+metadata:
+  name: multi-version-konflux-stage-sample-v1-0-0
+spec:
+  project: multi-version-konflux-stage-sample
+  template:
+    name: multi-version-konflux-stage-sample-template
+    values:
+    - name: version
+      value: "v1.0.0"
