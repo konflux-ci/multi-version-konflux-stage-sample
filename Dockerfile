@@ -12,7 +12,7 @@ RUN \
   echo echo "\"$(git branch --show-current)\"" > entrypoint.sh && \
   chmod +x entrypoint.sh
 
-FROM registry.access.redhat.com/ubi9/ubi-micro:9.5-1734513256
+FROM registry.access.redhat.com/ubi9/ubi-micro:9.5-1736426761
 
 LABEL name="Branch exposing image"
 LABEL description="A container image that shows the branch it was built from"
