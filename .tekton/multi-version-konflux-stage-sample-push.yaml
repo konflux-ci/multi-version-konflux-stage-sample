@@ -427,7 +427,8 @@ spec:
       optional: true
     - name: netrc
       optional: true
-  taskRunTemplate: {}
+  taskRunTemplate:
+    serviceAccountName: build-pipeline-multi-version-konflux-stage-sample
   workspaces:
   - name: workspace
     volumeClaimTemplate:
