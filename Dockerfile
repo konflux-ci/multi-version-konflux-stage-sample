@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi9/ubi:9.6-1747219013 as builder
+FROM registry.access.redhat.com/ubi9/ubi:9.6-1754586119 as builder
 
 RUN \
   yum install -y \
