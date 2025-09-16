@@ -22,6 +22,7 @@ follows:
 6. Create a PR for the v1.0.0 branch to update the CEL expressions for the files
    in the branch.
 7. Ensure that the Konflux pipelines are running for the new PR.
+8. Create a test report with results and post it as a Gist.
 
 Warning - before you begin
 --------------------------
@@ -44,7 +45,7 @@ Test process in detail
 3. CLI access to the Konflux STAGE (`stone-stg-rh01`) cluster. May be obtained with:
 
    ```bash
-   oc login --web --server=https://api.stone-stg-rh01.l2vh.p1.openshiftapps.com
+   oc login --web --server=https://api.stone-stg-rh01.l2vh.p1.openshiftapps.com:6443
    ```
 
 The software dependencies may be obtained using [Mise][mise] and configuration
@@ -55,6 +56,17 @@ mise install
 ```
 
 [mise]: https://mise.jdx.dev/
+
+### Setup Test Environment
+
+1. **Create a temporary directory for test files:**
+
+   ```bash
+   mkdir -p test-temp
+   ```
+
+This setup ensures that temporary files and test reports are organized in a
+dedicated directory.
 
 ### Ensuring we have no left-overs from previous tests
 
@@ -81,9 +93,10 @@ mise install
 
 ### Onboard this repo's `test-main` branch to the Konflux STAGE cluster
 
-This could be done by applying the following resources to the cluster:
+This could be done by applying the following resources to the cluster.
+Create these files in the `test-temp` directory:
 
-The application resource:
+The application resource (`test-temp/application.yaml`):
 
 ```yaml
 kind: Application
@@ -94,7 +107,7 @@ spec:
   displayName: prjctl-tst-main
 ```
 
-The component resource:
+The component resource (`test-temp/component.yaml`):
 
 ```yaml
 kind: Component
@@ -114,12 +127,14 @@ spec:
       revision: "test-main"
 ```
 
-The image repository resource:
+The image repository resource (`test-temp/imagerepository.yaml`):
 
 ```yaml
 kind: ImageRepository
 apiVersion: appstudio.redhat.com/v1alpha1
 metadata:
+  annotations:
+    image-controller.appstudio.redhat.com/update-component-image: "true"
   name: imagerepository-for-prjctl-tst-cmp1-main
   labels:
     appstudio.redhat.com/application: prjctl-tst-main
@@ -136,7 +151,7 @@ spec:
       title: SBOM-event-to-Bombino
 ```
 
-The integration test scenario resource:
+The integration test scenario resource (`test-temp/integrationtestscenario.yaml`):
 
 ```yaml
 kind: IntegrationTestScenario
@@ -221,9 +236,10 @@ git push origin v1.0.0
 ### Applying project-controller configuration
 
 We will use project-controller to setup Konflux for the new `v1.0.0` branch. To do
-so we need to apply the following resources to the cluster:
+so we need to apply the following resources to the cluster. Create these files
+in the `test-temp` directory:
 
-A project resource:
+A project resource (`test-temp/project.yaml`):
 
 ```yaml
 apiVersion: projctl.konflux.dev/v1beta1
@@ -237,7 +253,7 @@ spec:
     project versions [STAGE version]
 ```
 
-A project development stream template resource:
+A project development stream template resource (`test-temp/project-development-stream-template.yaml`):
 
 Note the places in the YAML below where it says `PR-URL-HERE` and `PR-TIME-HERE`.
 Those strings should be replaced with:
@@ -289,7 +305,7 @@ spec:
     metadata:
       annotations:
         build.appstudio.openshift.io/pipeline: '{"name":"docker-build-oci-ta","bundle":"latest"}'
-        build.appstudio.openshift.io/status: '{"pac":{"state":"enabled","PR-URL-HERE","configuration-time":"PR-TIME-HERE"},"message":"done"}'
+        build.appstudio.openshift.io/status: '{"pac":{"state":"enabled","merge-url":"PR-URL-HERE","configuration-time":"PR-TIME-HERE"},"message":"done"}'
       name: prjctl-tst-cmp1-{{.versionName}}
     spec:
       application: prjctl-tst-{{.versionName}}
@@ -303,6 +319,8 @@ spec:
   - kind: ImageRepository
     apiVersion: appstudio.redhat.com/v1alpha1
     metadata:
+      annotations:
+        image-controller.appstudio.redhat.com/update-component-image: "true"
       name: imagerepository-for-prjctl-tst-cmp1-{{.versionName}}
       labels:
         appstudio.redhat.com/application: prjctl-tst-{{.versionName}}
@@ -340,7 +358,7 @@ spec:
         resolver: git
 ```
 
-A project development stream resource:
+A project development stream resource (`test-temp/project-development-stream.yaml`):
 
 ```yaml
 apiVersion: projctl.konflux.dev/v1beta1
@@ -445,7 +463,9 @@ event == "pull_request" && target_branch == "v1.0.0"
 
     ```bash
     gh pr create --base v1.0.0 --head update-cel-expressions \
-      --title "Update CEL expressions for v1.0.0 branch"
+      --title "Update CEL expressions for v1.0.0 branch" \
+      --body "Updates CEL expressions in pipeline files to target v1.0.0 branch instead of test-main" \
+      --fill
     ```
 
 ### Ensuring that the Konflux pipelines are running for the new PR
@@ -476,10 +496,58 @@ successfully within 3-5 minutes. Here are the names of checks we should see:
 Reporting
 ---------
 
-After performing the test a report should be created that includes:
+After performing the test, create a comprehensive report:
+
+1. **Create a test report file:**
+
+   ```bash
+   cat > test-temp/TEST-REPORT.md << 'EOF'
+   # Konflux STAGE Test Report
+   
+   **Date**: $(date '+%B %d, %Y')
+   **Test Duration**: [Record total time]
+   **Status**: ✅ **SUCCESSFUL** / ❌ **FAILED**
+   **Test Procedure**: [STAGE-TEST.md](https://github.com/konflux-ci/multi-version-konflux-stage-sample/blob/stage-test-instructions/STAGE-TEST.md)
+   
+   ## Test Overview
+   
+   [Brief description of the test performed]
+   
+   ## Test Stages Completed
+   
+   ### 1. Prerequisites Setup ✅/❌
+   - **Duration**: [Time taken]
+   - **Status**: [Success/Failure]
+   - **Notes**: [Any observations]
+   
+   [Continue for each stage...]
+   
+   ## Issues Identified
+   
+   [List any issues found during testing]
+   
+   ## Recommendations
+   
+   [Suggestions for improvement]
+   
+   ## Conclusion
+   
+   [Overall assessment of the test]
+   EOF
+   ```
+
+2. **Post the report as a Gist:**
+
+   ```bash
+   gh gist create test-temp/TEST-REPORT.md --public \
+     --desc "Konflux STAGE Test Report - Project Controller Test Results $(date -u)"
+   ```
+
+The test report should include:
 
 1. Whether the test was successful
 2. The stages carried out
 3. The time it took for each stage of the work
 4. Any observations made
 5. Any issues encountered and how they were dealt with
+6. A link to the test procedure
