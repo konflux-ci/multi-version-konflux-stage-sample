@@ -1,0 +1,4 @@
+[tools]
+gh = "2.79.0"
+kubectl = "1.34.1"
+oc = "stable-4.19"

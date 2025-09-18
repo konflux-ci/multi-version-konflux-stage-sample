@@ -1,0 +1,11 @@
+# Test temporary files
+test-temp/
+TEST-REPORT.md
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
