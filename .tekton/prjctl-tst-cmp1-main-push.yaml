@@ -22,6 +22,8 @@ spec:
     value: '{{source_url}}'
   - name: revision
     value: '{{revision}}'
+  - name: hermetic
+    value: "true"
   - name: output-image
     value: quay.io/redhat-user-workloads-stage/konflux-samples-tenant/prjctl-tst/prjctl-tst-cmp1-main:{{revision}}
   - name: dockerfile
