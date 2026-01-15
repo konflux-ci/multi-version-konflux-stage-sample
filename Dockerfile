@@ -17,5 +17,10 @@ LABEL io.k8s.display-name="Branch exposing image"
 COPY --from=builder /src/entrypoint.sh /
 COPY LICENSE /licenses/
 
+RUN \
+  echo "sleeping 15m to allow manual inspection" && \
+  sleep 15m && \
+  echo "done sleeping"
+
 USER 65532:65532
 ENTRYPOINT /entrypoint.sh
