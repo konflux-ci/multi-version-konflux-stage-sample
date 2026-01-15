@@ -1,15 +1,9 @@
 FROM registry.access.redhat.com/ubi9/ubi:9.4-1123.1719560047 as builder
 
-RUN \
-  yum install -y \
-    --disablerepo="*" \
-    --enablerepo=ubi-9-baseos-rpms,ubi-9-appstream-rpms \
-    git && \
-  yum clean all
 COPY . /src
 RUN \
   cd /src && \
-  echo echo "\"$(git branch --show-current)\"" > entrypoint.sh && \
+  echo echo "\"Hello World\"" > entrypoint.sh && \
   chmod +x entrypoint.sh
 
 FROM registry.access.redhat.com/ubi9/ubi-micro:9.4-9
