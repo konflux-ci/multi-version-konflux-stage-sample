@@ -24,6 +24,28 @@ follows:
 7. Ensure that the Konflux pipelines are running for the new PR.
 8. Create a test report with results and post it as a Gist.
 
+Critical success criteria
+--------------------------
+
+**A clean initial state is mandatory.** The `test-main` branch at the commit
+`stage-test-start` must *not* contain any pipeline configuration (e.g. no
+`.tekton` directory or no Pipelines as Code files for this component). If
+`test-main` already includes pipeline configuration when you start, the state
+is dirty and the test is invalid—the Konflux build service will not create a new
+on-boarding PR, and you will not be testing the full flow.
+
+**Steps 3 and 7 are the essence of the test and must not be skipped or failed:**
+
+- **Step 3:** The Konflux build service must *create* the on-boarding PR
+  (title beginning with "Konflux Staging update"), the build and
+  enterprise-contract checks must *run and pass*, and you must *merge* that PR.
+  Skipping this step (e.g. because pipeline config already exists) or merging
+  without successful checks is a **complete test failure**.
+
+- **Step 7:** After opening the CEL-update PR (Step 6), Konflux pipeline
+  checks must *run and pass* on that PR. If checks do not appear or do not
+  succeed, the test has **failed**.
+
 Warning - before you begin
 --------------------------
 
@@ -34,6 +56,26 @@ in the following instructions.
 
 When changes need to be made to files in this repo, it's recommended to make another
 clone in a temporary directory in order to avoid losing access to this file.
+
+**Instructions for the agent (AI) performing this test**
+
+Before running any part of this test—especially git operations such as creating,
+resetting, or checking out branches—you **must** check whether you are operating
+in **worktree mode** (a separate Cursor worktree so the user's main branch and
+working tree are not modified).
+
+- **If you are in worktree mode:** You may proceed with the test, including git
+  operations, in this environment.
+- **If you are not in worktree mode, or you cannot confirm it:** Do **not** perform
+  git branch operations (e.g. `git checkout`, `git reset`, `git push`, creating
+  branches) in the user's workspace. Instead, **stop and instruct the user**:
+
+  > To avoid changing your main branch and workflow, please enable **worktree mode**
+  > in Cursor's UI so I run this test in a separate worktree. After you enable it
+  > and open or switch to that worktree, ask me again to perform the STAGE test.
+
+  Only continue with the test once the user has enabled worktree mode and you are
+  operating in that separate environment.
 
 Test process in detail
 ----------------------
@@ -70,26 +112,47 @@ dedicated directory.
 
 ### Ensuring we have no left-overs from previous tests
 
-1. In the `konflux-samples-tenant` namespace in the STAGE cluster, we need to make
-   sure the following resources don't exist:
-    1. Any `Project.projctl.konflux.dev` resource called `project-controller-test`
-    2. Any `Application.appstudio.redhat.com` resource whose name start with
-       `prjctl-tst`.
-    3. Any `Component.appstudio.redhat.com` resource whose name start with
-       `prjctl-tst`.
-    4. Any `IntegrationTestScenario.appstudio.redhat.com` resource whose name
-       start with `prjctl-tst`.
+1. In the STAGE cluster, ensure the following resources do not exist (delete any
+   that do). In the `konflux-samples-tenant` namespace:
+    1. Any `Application.appstudio.redhat.com` whose name starts with `prjctl-tst`
+    2. Any `Component.appstudio.redhat.com` whose name starts with `prjctl-tst`
+    3. Any `ImageRepository.appstudio.redhat.com` whose name starts with
+       `imagerepository-for-prjctl-tst`
+    4. Any `IntegrationTestScenario.appstudio.redhat.com` whose name starts with
+       `prjctl-tst`
+    5. Any `Project.projctl.konflux.dev` named `project-controller-test` or
+       `prjctl-tst`
+    6. Any `ProjectDevelopmentStreamTemplate.projctl.konflux.dev` named
+       `prjctl-tst-template`
+    7. Any `ProjectDevelopmentStream.projctl.konflux.dev` whose name starts with
+       `prjctl-tst-`
 
-2. There should be no open PRs for the `test-main` branch of this repo in GitHub
-3. There should be no branches with names like `v0.0.1` (`v` followed by a
-   version number) for this repo locally or in GitHub.
-4. The `test-main` branch should be reset to the commit tagged as `stage-test-start`:
+2. There should be no open PRs targeting the `test-main` branch of this repo in
+   GitHub. Close or merge them before proceeding.
+
+3. There should be no branches with names like `v1.0.0` (`v` followed by a
+   version number) for this repo locally or on the remote. Delete them (e.g.
+   `git push origin --delete v1.0.0`) so that `v1.0.0` is created only in Step 4
+   from the merged on-boarding state.
+
+4. The `test-main` branch must be reset to the commit tagged as `stage-test-start`:
 
    ```bash
    git checkout test-main
    git reset --hard stage-test-start
    git push --force-with-lease origin test-main
    ```
+
+5. **Verify clean initial state:** The commit at `stage-test-start` must *not*
+   contain pipeline configuration for this component (e.g. no `.tekton`
+   directory, or no files like `prjctl-tst-cmp1-main-*.yaml` there). If it does,
+   the initial state is dirty and the test will be invalid—the build service will
+   not create a new on-boarding PR. You can verify with:
+
+   ```bash
+   git ls-tree --name-only stage-test-start
+   ```
+   There should be no `.tekton` directory in the output.
 
 ### Onboard this repo's `test-main` branch to the Konflux STAGE cluster
 
@@ -176,10 +239,14 @@ spec:
     resolver: git
 ```
 
-### Monitoring the Konflux on-boarding PR
+### Monitoring the Konflux on-boarding PR (Step 3 — mandatory)
 
 After creating the resources specified above, the Konflux build service should
 automatically create a PR in this repo to configure a build pipeline for it.
+**This step is mandatory.** Do not skip it. If no new on-boarding PR is
+created (e.g. because pipeline config already exists on `test-main`), the
+initial state was dirty and the test has already failed. You must wait for the
+new PR, ensure its checks pass, and merge it before proceeding to Step 4.
 
 The PR would be targeting the branch we have onboarded (`test-main`), it would be
 sent by the `konflux-staging` bot account, its title would begin with "Konflux
@@ -192,6 +259,12 @@ after 10 minutes, check the component status:
 ```bash
 oc get component prjctl-tst-cmp1-main -n konflux-samples-tenant -o yaml
 ```
+
+If the component status says it is "waiting for spec.containerImage to be set by
+ImageRepository", the build service may not create the on-boarding PR until the
+image controller has set `spec.containerImage` on the component. Check that the
+ImageRepository has `status.state: ready` and `status.image.url` set, and check
+image controller logs if the component never receives `spec.containerImage`.
 
 Soon after the PR is created we should be able to see Konflux CI checks running
 for it in GitHub (Konflux is using the GitHub checks API to post status). We
@@ -210,11 +283,15 @@ scenario names.
 - Verify the component configuration in the cluster
 - Check build pipeline logs for errors
 
-Once the checks complete successfully we can instruct GitHub to merge the PR:
+Once the checks complete successfully we can instruct GitHub to merge the PR.
+**The test fails if you merge without successful checks or if you skip merging.**
 
 ```bash
 gh pr merge [PR-NUMBER] --merge --delete-branch
 ```
+
+Record the merged PR URL and merge timestamp (RFC 5322 format); you will need
+them for the project-controller template in Step 5.
 
 ### Creating a `v1.0.0` branch
 
@@ -468,7 +545,11 @@ event == "pull_request" && target_branch == "v1.0.0"
       --fill
     ```
 
-### Ensuring that the Konflux pipelines are running for the new PR
+### Ensuring that the Konflux pipelines are running for the new PR (Step 7 — mandatory)
+
+**This step is mandatory.** The test fails if Konflux checks do not run on the
+CEL-update PR or if they do not complete successfully. Do not consider the
+test passed until these checks are green.
 
 If all goes well we should see Konflux PR checks starting to run and completing
 successfully within 3-5 minutes. Here are the names of checks we should see:
@@ -551,3 +632,4 @@ The test report should include:
 4. Any observations made
 5. Any issues encountered and how they were dealt with
 6. A link to the test procedure
+
