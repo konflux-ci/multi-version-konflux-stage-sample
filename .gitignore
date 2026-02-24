@@ -5,6 +5,7 @@ TEST-REPORT.md
 # IDE files
 .vscode/
 .idea/
+.cursor/worktrees.json
 
 # OS files
 .DS_Store
